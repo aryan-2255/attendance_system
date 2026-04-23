@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 opencv-python-headless
-mediapipe
 numpy
 pymongo
 setuptools<81

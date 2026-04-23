@@ -1,11 +1,10 @@
 """
-Face recognition using MediaPipe (face detection) + OpenCV.
-No dlib, no compilation required — works on any free-tier platform.
+Face recognition using OpenCV only — no mediapipe, no dlib, no compilation.
 
 Strategy:
-  - Detect face region using MediaPipe FaceDetection
-  - Crop, resize to 64x64, convert to grayscale
-  - Apply histogram equalization (normalises lighting)
+  - Detect face using OpenCV Haar cascade (built into opencv, zero extra deps)
+  - Crop face region, resize to 64x64 grayscale
+  - Apply histogram equalisation (lighting normalisation)
   - L2-normalise the pixel vector as the face embedding
   - Compare embeddings using cosine similarity
 """
@@ -14,7 +13,6 @@ import base64
 import os
 
 import cv2
-import mediapipe as mp
 import numpy as np
 from bson import ObjectId
 from pymongo import MongoClient
@@ -28,10 +26,11 @@ _db = _db_client["attendance_db"]
 _students = _db["students"]
 
 # ---------------------------------------------------------------------------
-# MediaPipe face detector (loaded once)
+# OpenCV Haar cascade face detector (built-in, zero extra packages)
 # ---------------------------------------------------------------------------
-_mp_detection = mp.solutions.face_detection
-_detector = _mp_detection.FaceDetection(model_selection=0, min_detection_confidence=0.6)
+_cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+_face_cascade = cv2.CascadeClassifier(_cascade_path)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -52,48 +51,44 @@ def _decode_frame(base64_frame: str) -> np.ndarray:
 def _extract_embedding(base64_frame: str):
     """
     Returns (embedding_list, error_string).
-    embedding_list is a Python list of 4096 floats (64x64 normalised pixels).
+    embedding_list is a list of 4096 floats (64x64 normalised pixels).
     error_string is None on success.
     """
     img = _decode_frame(base64_frame)
-    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h, w = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    results = _detector.process(rgb)
+    faces = _face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(60, 60),
+    )
 
-    if not results.detections:
+    if len(faces) == 0:
         return None, "No face detected - please centre your face and try again"
 
-    if len(results.detections) > 1:
+    if len(faces) > 1:
         return None, "Multiple faces detected - only one person should be visible"
 
-    det = results.detections[0]
-    bb = det.location_data.relative_bounding_box
+    x, y, w, h = faces[0]
 
-    # Convert relative bbox to pixel coords
-    x = max(0, int(bb.xmin * w))
-    y = max(0, int(bb.ymin * h))
-    bw = int(bb.width * w)
-    bh = int(bb.height * h)
-
-    # Add 20% margin for forehead / chin
-    margin = int(0.20 * max(bw, bh))
+    # Add 20% margin
+    margin = int(0.20 * max(w, h))
     x1 = max(0, x - margin)
     y1 = max(0, y - margin)
-    x2 = min(w, x + bw + margin)
-    y2 = min(h, y + bh + margin)
+    x2 = min(img.shape[1], x + w + margin)
+    y2 = min(img.shape[0], y + h + margin)
 
-    face = img[y1:y2, x1:x2]
-    if face.size == 0:
+    face_crop = gray[y1:y2, x1:x2]
+    if face_crop.size == 0:
         return None, "Could not extract face region"
 
-    # Grayscale + histogram equalisation (lighting normalisation)
-    gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
-    resized = cv2.resize(gray, (64, 64))
-    equalised = cv2.equalizeHist(resized)
+    # Resize + histogram equalisation (lighting normalisation)
+    face_resized = cv2.resize(face_crop, (64, 64))
+    face_eq = cv2.equalizeHist(face_resized)
 
     # L2-normalised flat vector
-    vec = equalised.flatten().astype(np.float64)
+    vec = face_eq.flatten().astype(np.float64)
     norm = np.linalg.norm(vec)
     if norm > 0:
         vec /= norm
@@ -102,7 +97,7 @@ def _extract_embedding(base64_frame: str):
 
 
 # ---------------------------------------------------------------------------
-# Public API (called from main.py)
+# Public API
 # ---------------------------------------------------------------------------
 
 def register_face(base64_frame: str, student_id: str) -> dict:
@@ -125,8 +120,8 @@ def register_face(base64_frame: str, student_id: str) -> dict:
 def verify_face(base64_frame: str, class_name: str) -> dict:
     """
     Compare the live face against every registered student in class_name.
-    Returns matched=True with the student_id when cosine similarity >= 0.88
-    (equivalent to distance <= 0.12, well inside the server-side 0.5 guard).
+    Returns matched=True with student_id when cosine similarity >= 0.88
+    (distance = 1 - similarity <= 0.12, well inside the server-side 0.5 guard).
     """
     live_embedding, error = _extract_embedding(base64_frame)
     if error:
@@ -154,23 +149,22 @@ def verify_face(base64_frame: str, class_name: str) -> dict:
         if stored_vec.shape != live_vec.shape:
             continue
 
-        # Both vectors are L2-normalised so dot product == cosine similarity
+        # Both L2-normalised, so dot product == cosine similarity
         similarity = float(np.dot(live_vec, stored_vec))
         if similarity > best_similarity:
             best_similarity = similarity
             best_match = student
 
-    THRESHOLD = 0.88  # cosine similarity; equivalent distance = 1 - 0.88 = 0.12
+    THRESHOLD = 0.88
 
     if best_match and best_similarity >= THRESHOLD:
         return {
             "matched": True,
             "student_id": str(best_match["_id"]),
-            # distance kept < 0.5 so the Node.js guard passes
             "distance": round(1.0 - best_similarity, 4),
         }
 
     return {
         "matched": False,
-        "message": f"Face did not match any student (best similarity: {best_similarity:.3f})",
+        "message": f"Face did not match (best similarity: {best_similarity:.3f})",
     }
