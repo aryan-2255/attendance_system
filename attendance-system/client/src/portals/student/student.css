@@ -1,0 +1,142 @@
+.student-auth,
+.student-register-page {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.student-register-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 48px;
+}
+
+.register-card {
+  width: 760px;
+}
+
+.face-register-card {
+  width: 620px;
+}
+
+.steps {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.step-dot {
+  background: var(--border);
+  border-radius: 50%;
+  height: 10px;
+  transition: background 0.2s;
+  width: 10px;
+}
+
+.step-dot.active {
+  background: var(--primary);
+}
+
+.step-dot.done {
+  background: var(--success);
+}
+
+.step-line {
+  background: var(--border);
+  height: 2px;
+  width: 64px;
+}
+
+.step-line.done {
+  background: var(--success);
+}
+
+.student-dashboard {
+  min-height: 100vh;
+}
+
+.student-topbar {
+  align-items: center;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 22px 40px;
+}
+
+.student-topbar h1 {
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+
+.student-topbar p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.student-main {
+  display: grid;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 1040px;
+  padding: 32px 40px 48px;
+}
+
+.student-notice {
+  background: var(--primary-light);
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  color: var(--primary-dark);
+  font-size: 14px;
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.active-session-card {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.active-session-card h2 {
+  font-size: 24px;
+  margin: 0 0 6px;
+}
+
+.active-session-card p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.active-session-card.is-closed h2,
+.active-session-card.is-closed p {
+  color: var(--text-muted);
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-heading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.section-heading span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.mark-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.mark-row p {
+  margin: 0;
+}

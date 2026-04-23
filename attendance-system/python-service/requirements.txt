@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+opencv-python
+mediapipe
+face_recognition
+numpy
+pymongo
+setuptools<81

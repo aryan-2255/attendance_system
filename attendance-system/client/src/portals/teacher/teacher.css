@@ -1,0 +1,86 @@
+.teacher-auth {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.stats-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+.dashboard-error {
+  margin-bottom: 16px;
+}
+
+.session-card {
+  margin-bottom: 24px;
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-heading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.section-heading span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.active-session,
+.schedule-session {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.session-label {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.active-session h3 {
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.active-session p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.live-count {
+  background: var(--primary-light);
+  border-radius: var(--radius-md);
+  color: var(--primary);
+  min-width: 170px;
+  padding: 18px;
+  text-align: center;
+}
+
+.live-count span {
+  display: block;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.live-count p {
+  color: var(--primary);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.schedule-session strong {
+  display: block;
+  font-size: 20px;
+}

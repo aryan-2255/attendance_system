@@ -1,0 +1,48 @@
+.admin-auth {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.portal-switch {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 18px 0 0;
+}
+
+.portal-switch a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.admin-grid {
+  align-items: flex-start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 380px minmax(0, 1fr);
+}
+
+.create-teacher-card {
+  position: sticky;
+  top: 32px;
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.section-heading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.section-heading span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.table-action {
+  min-height: 34px;
+  padding: 7px 12px;
+}
