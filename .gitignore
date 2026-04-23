@@ -1,12 +1,21 @@
+# macOS / Editor
+.DS_Store
+.vscode/
+
+# Client
 client/dist/
 client/node_modules/
 client/.env
 client/.env.local
 client/.env.*.local
+
+# Server
 server/node_modules/
+server/.env
+
+# Python Service
 python-service/.venv/
 python-service/__pycache__/
-*.pyc
-server/.env
 python-service/.env
+*.pyc
 *.env.local

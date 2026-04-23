@@ -2,8 +2,14 @@ import axios from "axios";
 
 import { clearAuth, getToken, getUser, loginPathForRole } from "./auth";
 
+const resolveServerUrl = () => {
+  const raw = import.meta.env.VITE_SERVER_URL;
+  if (!raw) return null;
+  return raw.startsWith("http") ? raw : `https://${raw}`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5001/api",
+  baseURL: import.meta.env.VITE_API_URL || (resolveServerUrl() ? `${resolveServerUrl()}/api` : "http://localhost:5001/api"),
   timeout: 20000
 });
 

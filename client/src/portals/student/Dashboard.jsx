@@ -7,7 +7,8 @@ import { getUser, logout } from "../../utils/auth";
 import AttendanceHistory from "./AttendanceHistory";
 import MarkAttendance from "./MarkAttendance";
 
-const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:5001";
+const rawSocketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_SERVER_URL || "http://localhost:5001";
+const socketUrl = rawSocketUrl.startsWith("http") ? rawSocketUrl : `https://${rawSocketUrl}`;
 
 const Dashboard = () => {
   const user = getUser();

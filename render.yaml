@@ -1,0 +1,67 @@
+# ── Render Blueprint ─────────────────────────────────────────────
+# Deploy all 3 services from this single file.
+# Steps:  1) Push to GitHub
+#          2) Go to https://render.com/deploy  →  select your repo
+#          3) Render reads this file and creates everything automatically.
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  # ── 1. Node.js API Server ──────────────────────────────────────
+  - type: web
+    name: attendance-server
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: MONGO_URI
+        sync: false                        # you'll be prompted to enter this
+      - key: JWT_SECRET
+        generateValue: true                # auto-generated secure random string
+      - key: ADMIN_EMAIL
+        value: admin@school.com
+      - key: ADMIN_PASSWORD
+        sync: false                        # you'll be prompted to enter this
+      - key: PYTHON_SERVICE_URL
+        fromService:
+          name: attendance-python
+          type: web
+          property: host
+      - key: CLIENT_URL
+        fromService:
+          name: attendance-client
+          type: web
+          property: host
+
+  # ── 2. Python Face-Recognition Service ─────────────────────────
+  - type: web
+    name: attendance-python
+    runtime: docker
+    rootDir: python-service
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: MONGO_URI
+        sync: false                        # same MongoDB connection string
+
+  # ── 3. React Client (Static Site) ─────────────────────────────
+  - type: web
+    name: attendance-client
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SERVER_URL
+        fromService:
+          name: attendance-server
+          type: web
+          property: host

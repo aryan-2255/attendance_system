@@ -25,7 +25,8 @@ const safeStudent = (student) => {
 };
 
 const callPythonService = async (path, body) => {
-  const baseUrl = process.env.PYTHON_SERVICE_URL || "http://localhost:8000";
+  const raw = process.env.PYTHON_SERVICE_URL || "http://localhost:8000";
+  const baseUrl = raw.startsWith("http") ? raw : `https://${raw}`;
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

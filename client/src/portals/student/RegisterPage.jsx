@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../utils/api";
 
-const CLASS_OPTIONS = ["10-A", "10-B", "11-A", "11-B", "12-A", "12-B"];
+const CLASS_OPTIONS = ["A", "B", "C", "D"];
 
 const initialForm = {
   name: "",
@@ -11,7 +11,7 @@ const initialForm = {
   password: "",
   confirmPassword: "",
   roll_no: "",
-  class: "10-A"
+  class: "A"
 };
 
 const RegisterPage = () => {

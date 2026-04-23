@@ -17,11 +17,16 @@ const registerSocketHandlers = require("./socket/socketHandler");
 const app = express();
 const server = http.createServer(app);
 
+const ensureUrl = (value) => {
+  if (!value) return value;
+  return value.startsWith("http") ? value : `https://${value}`;
+};
+
 const rawClientUrls =
   process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:5173";
 const allowedOrigins = rawClientUrls
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => ensureUrl(origin.trim()))
   .filter(Boolean);
 const port = process.env.PORT || 5000;
 

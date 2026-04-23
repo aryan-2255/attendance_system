@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const CLASS_OPTIONS = ["10-A", "10-B", "11-A", "11-B", "12-A", "12-B"];
+const CLASS_OPTIONS = ["A", "B", "C", "D"];
 
 const userSchema = new mongoose.Schema(
   {
