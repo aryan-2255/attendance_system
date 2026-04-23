@@ -724,6 +724,100 @@ The project uses **MongoDB** with 4 collections:
 
 
 
+## Deployment (Render)
+
+This project is **Render-ready** with a `render.yaml` Blueprint at the repository root.
+
+### Steps
+
+**1. Deploy via Blueprint**
+1. Push the code to GitHub
+2. Go to [dashboard.render.com/blueprint/new](https://dashboard.render.com/blueprint/new)
+3. Connect your repository
+4. Render reads `render.yaml` and creates all 3 services
+5. Enter the required secrets when prompted:
+   - `MONGO_URI` - your MongoDB Atlas connection string
+   - `ADMIN_PASSWORD` - password for the admin account
+6. Click **Deploy Blueprint**
+
+**2. Set remaining environment variables manually (required)**
+
+After the first deploy, set these in each service's **Environment** tab on Render:
+
+| Service | Key | Value |
+|---------|-----|-------|
+| `attendance-server` | `PYTHON_SERVICE_URL` | `https://<attendance-python>.onrender.com` |
+| `attendance-server` | `CLIENT_URL` | `https://<attendance-client>.onrender.com` |
+| `attendance-client` | `VITE_SERVER_URL` | `https://<attendance-server>.onrender.com` |
+| `attendance-python` | `MONGO_URI` | your MongoDB Atlas connection string |
+
+> Replace `<service-name>` with the actual subdomain shown in each service's Settings on Render.
+
+**3. Trigger a redeploy of `attendance-client`** after setting `VITE_SERVER_URL` (static sites bake env vars at build time).
+
+### Why manual env vars?
+
+Render's `fromService: property: host` gives an internal short hostname (e.g. `attendance-server-nujh`) that resolves only within Render's private network. For the browser client and service-to-service calls on the free tier, you need the full public URL (`attendance-server-nujh.onrender.com`).
+
+### Free Tier Notes
+- Instances spin down after 15 minutes of inactivity
+- First request after spin-down takes up to 50 seconds to wake up
+- The Python service uses OpenCV (no compilation needed) - builds complete in under 2 minutes
+
+
+
+## Default Credentials
+
+| Portal | Email | Password |
+|--------|-------|----------|
+| Admin | `admin@school.com` | *(value you set for ADMIN_PASSWORD)* |
+| Teacher | *(created by admin)* | *(set by admin)* |
+| Student | *(self-registered)* | *(set at registration)* |
+
+
+
+## Environment Variables
+
+### `server/.env`
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PORT` | Server port | `5001` |
+| `MONGO_URI` | MongoDB Atlas connection string | `mongodb+srv://...` |
+| `JWT_SECRET` | Secret key for signing JWT tokens | `any-long-random-string` |
+| `ADMIN_EMAIL` | Default admin email | `admin@school.com` |
+| `ADMIN_PASSWORD` | Default admin password | `Admin@1234` |
+| `PYTHON_SERVICE_URL` | Full public URL of the Python face service | `https://attendance-python-xxxx.onrender.com` |
+| `CLIENT_URL` | Full public URL of the React client (for CORS) | `https://attendance-client-xxxx.onrender.com` |
+
+### `client/.env`
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_SERVER_URL` | Full public URL of the backend server | `https://attendance-server-xxxx.onrender.com` |
+| `VITE_API_URL` | Override for full API URL (optional) | `https://attendance-server-xxxx.onrender.com/api` |
+
+### `python-service/.env`
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MONGO_URI` | Same MongoDB connection string as server | `mongodb+srv://...` |
+| `PORT` | Python service port | `8000` |
+
+
+
+## Project Stats
+
+| Metric | Value |
+|--------|-------|
+| Total source files | 40+ |
+| Total lines of code | ~4,000 |
+| Frontend components | 19 React components |
+| API endpoints | 14 REST endpoints |
+| Database collections | 4 |
+| Face recognition | OpenCV Haar cascade + L2-normalised embeddings |
+| Real-time events | 5 WebSocket event types |
+| Supported classes | A, B, C, D |
+
+
+
 ## User Flows
 
 ### Student Registration Flow
@@ -827,66 +921,3 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 | FastAPI Docs | http://localhost:8000/docs |
 
 
-
-## Deployment (Render)
-
-This project is **Render-ready** with a `render.yaml` Blueprint at the repository root.
-
-### One-Click Deploy
-1. Push the code to GitHub
-2. Go to [render.com/deploy](https://render.com/deploy)
-3. Connect your repository
-4. Render auto-detects `render.yaml` and creates all 3 services
-5. Enter the two secrets when prompted (MONGO_URI and ADMIN_PASSWORD)
-6. Done - all services are live with auto-wired URLs
-
-
-
-## Default Credentials
-
-| Portal | Email | Password |
-|--------|-------|----------|
-| Admin | `admin@school.com` | `Admin@1234` |
-| Teacher | *(created by admin)* | *(set by admin)* |
-| Student | *(self-registered)* | *(set at registration)* |
-
-
-
-## Environment Variables
-
-### `server/.env`
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `PORT` | Server port | `5001` |
-| `MONGO_URI` | MongoDB Atlas connection string | `mongodb+srv://...` |
-| `JWT_SECRET` | Secret key for signing JWT tokens | `any-long-random-string` |
-| `ADMIN_EMAIL` | Default admin email | `admin@school.com` |
-| `ADMIN_PASSWORD` | Default admin password | `Admin@1234` |
-| `PYTHON_SERVICE_URL` | URL of the Python face service | `http://localhost:8000` |
-| `CLIENT_URL` | URL of the React client (for CORS) | `http://localhost:5173` |
-
-### `client/.env`
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `VITE_API_URL` | Full backend API URL | `http://localhost:5001/api` |
-| `VITE_SOCKET_URL` | Backend WebSocket URL | `http://localhost:5001` |
-
-### `python-service/.env`
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MONGO_URI` | Same MongoDB connection string as server | `mongodb+srv://...` |
-
-
-
-## Project Stats
-
-| Metric | Value |
-|--------|-------|
-| Total source files | 40+ |
-| Total lines of code | ~4,100 |
-| Frontend components | 19 React components |
-| API endpoints | 14 REST endpoints |
-| Database collections | 4 |
-| AI model | dlib's 128-D face encoding |
-| Real-time events | 5 WebSocket event types |
-| Supported classes | A, B, C, D |
