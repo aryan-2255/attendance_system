@@ -1,8 +1,8 @@
 fastapi
 uvicorn
-opencv-python
-mediapipe
-face_recognition
+opencv-python-headless
+dlib-bin
+face-recognition
 numpy
 pymongo
 setuptools<81
