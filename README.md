@@ -4,6 +4,21 @@
 
 
 
+## Live Demo
+
+| Portal | URL |
+|--------|-----|
+| **Landing Page** | https://attendance-client-ak60.onrender.com |
+| **Admin Login** | https://attendance-client-ak60.onrender.com/admin/login |
+| **Teacher Login** | https://attendance-client-ak60.onrender.com/teacher/login |
+| **Student Login** | https://attendance-client-ak60.onrender.com/student/login |
+
+> Note - Free-tier instances spin down after inactivity. First request may take up to 50 seconds to wake up.
+
+Default admin credentials: `admin@school.com` / your chosen password
+
+
+
 ## Table of Contents
 
 1. [What Does This Project Do?](#-what-does-this-project-do)
@@ -56,7 +71,7 @@ Here is the step-by-step flow of the entire system, from the very beginning to m
 The admin logs in and creates a teacher account (name, email, password, subject, class). This is a one-time setup.
 
 ### Step 2 - Students Register Themselves
-A student visits the registration page, fills in their details (name, email, password, roll number, class), and is taken to a **face scan page**. The webcam turns on, the student centres their face in an oval, and clicks "Capture". This sends the photo to the **Python AI service**, which extracts a mathematical "fingerprint" of their face (called a **face embedding** - a list of 128 numbers that uniquely represent their facial features) and saves it in the database.
+A student visits the registration page, fills in their details (name, email, password, roll number, class), and is taken to a **face scan page**. The webcam turns on, the student centres their face in an oval, and clicks "Capture". This sends the photo to the **Python AI service**, which detects the face using OpenCV's Haar cascade detector, crops and normalises it to a 64x64 grayscale image, and stores the L2-normalised pixel vector as their unique face signature in the database.
 
 ### Step 3 - Teacher Starts a Session
 The teacher logs in and clicks "Start Session". This creates a new session in the database and **instantly notifies all students** in that class via WebSocket (real-time push). Students see "Session opened" on their screen without refreshing.
