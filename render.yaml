@@ -30,10 +30,7 @@ services:
           type: web
           property: host
       - key: CLIENT_URL
-        fromService:
-          name: attendance-client
-          type: web
-          property: host
+        sync: false                        # set to: https://<attendance-client>.onrender.com
 
   # ── 2. Python Face-Recognition Service ─────────────────────────
   - type: web
@@ -61,7 +58,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_SERVER_URL
-        fromService:
-          name: attendance-server
-          type: web
-          property: host
+        sync: false                        # set to: https://<attendance-server>.onrender.com
