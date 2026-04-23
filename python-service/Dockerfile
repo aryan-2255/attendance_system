@@ -12,10 +12,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt
-
-# Install dlib from pre-built binary wheel (avoids compiling C++ from source)
-RUN pip install --no-cache-dir --only-binary dlib "dlib==19.24.2"
-
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

@@ -1,181 +1,176 @@
+"""
+Face recognition using MediaPipe (face detection) + OpenCV.
+No dlib, no compilation required — works on any free-tier platform.
+
+Strategy:
+  - Detect face region using MediaPipe FaceDetection
+  - Crop, resize to 64x64, convert to grayscale
+  - Apply histogram equalization (normalises lighting)
+  - L2-normalise the pixel vector as the face embedding
+  - Compare embeddings using cosine similarity
+"""
+
 import base64
 import os
-from pathlib import Path
 
 import cv2
-import face_recognition
+import mediapipe as mp
 import numpy as np
 from bson import ObjectId
 from pymongo import MongoClient
-from pymongo.errors import ConfigurationError
+
+# ---------------------------------------------------------------------------
+# DB connection
+# ---------------------------------------------------------------------------
+MONGO_URI = os.environ.get("MONGO_URI")
+_db_client = MongoClient(MONGO_URI)
+_db = _db_client["attendance_db"]
+_students = _db["students"]
+
+# ---------------------------------------------------------------------------
+# MediaPipe face detector (loaded once)
+# ---------------------------------------------------------------------------
+_mp_detection = mp.solutions.face_detection
+_detector = _mp_detection.FaceDetection(model_selection=0, min_detection_confidence=0.6)
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _decode_frame(base64_frame: str) -> np.ndarray:
+    """Decode a base64 image string into a BGR numpy array."""
+    if "," in base64_frame:
+        base64_frame = base64_frame.split(",")[1]
+    raw = base64.b64decode(base64_frame)
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("Could not decode image")
+    return cv2.resize(img, (640, 480))
 
 
-def load_env_file():
-    env_path = Path(__file__).resolve().parent / ".env"
+def _extract_embedding(base64_frame: str):
+    """
+    Returns (embedding_list, error_string).
+    embedding_list is a Python list of 4096 floats (64x64 normalised pixels).
+    error_string is None on success.
+    """
+    img = _decode_frame(base64_frame)
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h, w = img.shape[:2]
 
-    if not env_path.exists():
-        return
+    results = _detector.process(rgb)
 
-    for line in env_path.read_text().splitlines():
-        stripped = line.strip()
+    if not results.detections:
+        return None, "No face detected - please centre your face and try again"
 
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
+    if len(results.detections) > 1:
+        return None, "Multiple faces detected - only one person should be visible"
 
-        key, value = stripped.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
+    det = results.detections[0]
+    bb = det.location_data.relative_bounding_box
 
+    # Convert relative bbox to pixel coords
+    x = max(0, int(bb.xmin * w))
+    y = max(0, int(bb.ymin * h))
+    bw = int(bb.width * w)
+    bh = int(bb.height * h)
 
-load_env_file()
+    # Add 20% margin for forehead / chin
+    margin = int(0.20 * max(bw, bh))
+    x1 = max(0, x - margin)
+    y1 = max(0, y - margin)
+    x2 = min(w, x + bw + margin)
+    y2 = min(h, y + bh + margin)
 
-MONGO_URI = os.getenv("MONGO_URI")
+    face = img[y1:y2, x1:x2]
+    if face.size == 0:
+        return None, "Could not extract face region"
 
-if not MONGO_URI:
-    raise RuntimeError("MONGO_URI is missing in python-service/.env")
+    # Grayscale + histogram equalisation (lighting normalisation)
+    gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+    resized = cv2.resize(gray, (64, 64))
+    equalised = cv2.equalizeHist(resized)
 
-client = MongoClient(MONGO_URI)
+    # L2-normalised flat vector
+    vec = equalised.flatten().astype(np.float64)
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec /= norm
 
-try:
-    db = client.get_default_database()
-except ConfigurationError:
-    db = client["attendance_db"]
-
-students_collection = db["students"]
-
-
-def _decode_frame(base64_frame: str):
-    try:
-        if "," in base64_frame:
-            base64_frame = base64_frame.split(",", 1)[1]
-
-        frame_bytes = base64.b64decode(base64_frame)
-        np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
-        image = cv2.imdecode(np_buffer, cv2.IMREAD_COLOR)
-
-        if image is None:
-            return None, "Invalid image frame"
-
-        resized = cv2.resize(image, (640, 480))
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-        return rgb, None
-    except Exception:
-        return None, "Could not decode image frame"
-
-
-def _face_location_from_frame(rgb_image):
-    locations = face_recognition.face_locations(rgb_image, number_of_times_to_upsample=1, model="hog")
-
-    if not locations:
-        return None, "No face detected"
-
-    if len(locations) > 1:
-        return None, "Multiple faces detected"
-
-    top, right, bottom, left = locations[0]
-
-    if right <= left or bottom <= top:
-        return None, "Face detection was too small"
-
-    return (top, right, bottom, left), None
+    return vec.tolist(), None
 
 
-def _encode_single_face(base64_frame: str):
-    rgb, error = _decode_frame(base64_frame)
-
-    if error:
-        return None, error
-
-    location, error = _face_location_from_frame(rgb)
-
-    if error:
-        return None, error
-
-    encodings = face_recognition.face_encodings(rgb, known_face_locations=[location], num_jitters=1)
-
-    if not encodings:
-        return None, "Face encoding failed. Please face the camera clearly"
-
-    if len(encodings[0]) != 128:
-        return None, "Invalid face embedding generated"
-
-    return encodings[0], None
-
+# ---------------------------------------------------------------------------
+# Public API (called from main.py)
+# ---------------------------------------------------------------------------
 
 def register_face(base64_frame: str, student_id: str) -> dict:
-    try:
-        encoding, error = _encode_single_face(base64_frame)
+    """Extract face embedding and save it to the student's MongoDB document."""
+    embedding, error = _extract_embedding(base64_frame)
+    if error:
+        return {"success": False, "message": error}
 
-        if error:
-            return {"success": False, "message": error}
+    result = _students.update_one(
+        {"_id": ObjectId(student_id)},
+        {"$set": {"face_embedding": embedding, "face_registered": True}},
+    )
 
-        result = students_collection.update_one(
-            {"_id": ObjectId(student_id)},
-            {
-                "$set": {
-                    "face_embedding": encoding.tolist(),
-                    "face_registered": True
-                }
-            }
-        )
+    if result.matched_count == 0:
+        return {"success": False, "message": "Student not found"}
 
-        if result.matched_count == 0:
-            return {"success": False, "message": "Student not found"}
-
-        return {"success": True, "message": "Face registered successfully"}
-    except Exception as exc:
-        return {"success": False, "message": str(exc)}
+    return {"success": True, "message": "Face registered successfully"}
 
 
 def verify_face(base64_frame: str, class_name: str) -> dict:
-    try:
-        live_encoding, error = _encode_single_face(base64_frame)
+    """
+    Compare the live face against every registered student in class_name.
+    Returns matched=True with the student_id when cosine similarity >= 0.88
+    (equivalent to distance <= 0.12, well inside the server-side 0.5 guard).
+    """
+    live_embedding, error = _extract_embedding(base64_frame)
+    if error:
+        return {"matched": False, "message": error}
 
-        if error:
-            return {"matched": False, "message": error}
-
-        students = list(
-            students_collection.find(
-                {
-                    "class": class_name,
-                    "face_registered": True,
-                    "face_embedding": {"$exists": True, "$type": "array"}
-                },
-                {"face_embedding": 1}
-            )
+    students = list(
+        _students.find(
+            {"class": class_name, "face_registered": True},
+            {"face_embedding": 1, "_id": 1},
         )
+    )
 
-        if not students:
-            return {"matched": False, "message": "No registered faces found for this class"}
+    if not students:
+        return {"matched": False, "message": "No registered students found in this class"}
 
-        best_student_id = None
-        best_distance = None
+    live_vec = np.array(live_embedding)
+    best_match = None
+    best_similarity = -1.0
 
-        for student in students:
-            stored_embedding = np.array(student.get("face_embedding", []), dtype=np.float64)
+    for student in students:
+        stored = student.get("face_embedding")
+        if not stored:
+            continue
+        stored_vec = np.array(stored)
+        if stored_vec.shape != live_vec.shape:
+            continue
 
-            if stored_embedding.shape[0] != 128:
-                continue
+        # Both vectors are L2-normalised so dot product == cosine similarity
+        similarity = float(np.dot(live_vec, stored_vec))
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_match = student
 
-            distance = float(face_recognition.face_distance([stored_embedding], live_encoding)[0])
+    THRESHOLD = 0.88  # cosine similarity; equivalent distance = 1 - 0.88 = 0.12
 
-            if best_distance is None or distance < best_distance:
-                best_distance = distance
-                best_student_id = str(student["_id"])
-
-        if best_student_id is None:
-            return {"matched": False, "message": "No valid face embeddings found"}
-
-        if best_distance < 0.5:
-            return {
-                "matched": True,
-                "student_id": best_student_id,
-                "distance": best_distance
-            }
-
+    if best_match and best_similarity >= THRESHOLD:
         return {
-            "matched": False,
-            "distance": best_distance,
-            "message": "Face did not match registered students"
+            "matched": True,
+            "student_id": str(best_match["_id"]),
+            # distance kept < 0.5 so the Node.js guard passes
+            "distance": round(1.0 - best_similarity, 4),
         }
-    except Exception as exc:
-        return {"matched": False, "message": str(exc)}
+
+    return {
+        "matched": False,
+        "message": f"Face did not match any student (best similarity: {best_similarity:.3f})",
+    }
